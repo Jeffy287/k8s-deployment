@@ -1,30 +1,63 @@
 pipeline {
     agent any
 
+    environment {
+        DOCKER_CREDENTIALS = 'dockerhub-creds'  // Jenkins credentials ID for DockerHub
+        DOCKER_IMAGE = 'jefrinpeter/jefrindockerimage'
+        DOCKER_TAG = 'latest'
+        GIT_REPO = 'https://github.com/Jeffy287/k8s-deployment.git'
+        GIT_BRANCH = 'main'
+        KUBECONFIG = 'C:/ProgramData/Jenkins/.kube/config'  // 👈 Important for Minikube access
+    }
+
     stages {
-        stage('Pull Code From GitHub') {
+        stage('Checkout Code') {
             steps {
-                git 'https://github.com/Alvinbsi/K8s_Project_NOV12.git'
+                git url: "${GIT_REPO}", branch: "${GIT_BRANCH}"
             }
         }
-        stage('Build the Docker image') {
+
+        stage('Build Docker Image') {
             steps {
-                sh 'sudo docker build -t alvink8simage /var/lib/jenkins/workspace/k8s_build_nov13'
-                sh 'sudo docker tag alvink8simage alvinselva/alvink8simage:latest'
-                sh 'sudo docker tag alvink8simage alvinselva/alvink8simage:${BUILD_NUMBER}'
+                bat "docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} ."
             }
         }
-        stage('Push the Docker image') {
+
+        stage('Push to Docker Hub') {
             steps {
-                sh 'sudo docker image push alvinselva/alvink8simage:latest'
-                sh 'sudo docker image push alvinselva/alvink8simage:${BUILD_NUMBER}'
+                withCredentials([usernamePassword(credentialsId: "${DOCKER_CREDENTIALS}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    bat """
+                        echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USER} --password-stdin
+                        docker push ${DOCKER_IMAGE}:${DOCKER_TAG}
+                    """
+                }
             }
         }
-        stage('Deploy on Kubernetes') {
+
+        stage('Deploy to Minikube') {
             steps {
-                sh 'sudo kubectl apply -f /var/lib/jenkins/workspace/k8s_build_nov13/pod.yaml'
-                sh 'sudo kubectl rollout restart deployment loadbalancer-pod'
+                bat 'kubectl config use-context minikube'
+                bat 'kubectl apply -f k8s/deployment.yaml'
+                bat 'kubectl apply -f k8s/service.yaml'
             }
+        }
+
+        stage('Rollout Restart Deployment') {
+            steps {
+                bat 'kubectl rollout restart deployment website-deployment'
+            }
+        }
+
+        stage('Notify Deployment Success') {
+            steps {
+                echo "✅ Successfully deployed to Minikube!"
+            }
+        }
+    }
+
+    post {
+        always {
+            bat 'docker logout'
         }
     }
 }

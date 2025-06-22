@@ -2,12 +2,12 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_CREDENTIALS = 'dockerhub-creds'  // Jenkins credentials ID for DockerHub
+        DOCKER_CREDENTIALS = 'dockerhub-creds'  
         DOCKER_IMAGE = 'jefrinpeter/jefrindockerimage'
         DOCKER_TAG = 'latest'
         GIT_REPO = 'https://github.com/Jeffy287/k8s-deployment.git'
         GIT_BRANCH = 'main'
-        KUBECONFIG = 'C:/ProgramData/Jenkins/.kube/config'  // 👈 Important for Minikube access
+        KUBECONFIG = 'C:/ProgramData/Jenkins/.kube/config'  
     }
 
     stages {
